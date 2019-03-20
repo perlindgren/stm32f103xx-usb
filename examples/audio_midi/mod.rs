@@ -5,7 +5,7 @@ use usb_device::class_prelude::*;
 use usb_device::Result;
 
 // https://www.usb.org/defined-class-codes#anchor_BaseClass01h
-// https://www.microchip.com/forums/m297214.aspx
+// 'https://www.microchip.com/forums/m297214.aspx'
 // static rom byte cfg01[] =
 // {
 //   0x09, 0x02, 0x65, 0x00, 0x02, 0x01, 0x00, 0x00, 0x32, // Config
@@ -24,7 +24,7 @@ use usb_device::Result;
 // };
 
 pub const USB_CLASS_AUDIO: u8 = 0x01;
-// const USB_CLASS_DATA: u8 = 0x0a;
+const USB_CLASS_DATA: u8 = 0x0a;
 const CDC_SUBCLASS_ACM: u8 = 0x02;
 const CDC_PROTOCOL_AT: u8 = 0x01;
 
@@ -48,14 +48,39 @@ pub struct SerialPort<'a, B: UsbBus> {
     need_zlp: bool,
 }
 
-impl<B: UsbBus> SerialPort<'_, B> {
-    pub fn new(alloc: &UsbBusAllocator<B>) -> SerialPort<'_, B> {
-        SerialPort {
+//   0x09, 0x24, 0x01, 0x00, 0x01, 0x09, 0x00, 0x01, 0x01, // CS Interface (audio)
+pub struct CsInterfaceAudio<'a, B: UsbBus> {
+    comm_if: InterfaceNumber,
+    comm_ep: EndpointIn<'a, B>,
+    data_if: InterfaceNumber,
+    read_ep: EndpointOut<'a, B>,
+    write_ep: EndpointIn<'a, B>,
+    buf: [u8; 64],
+    len: usize,
+    need_zlp: bool,
+}
+
+// Midi Stream Interface
+pub struct MsInterface<'a, B: UsbBus> {
+    comm_if: InterfaceNumber,
+    comm_ep: EndpointIn<'a, B>,
+    data_if: InterfaceNumber,
+    read_ep: EndpointOut<'a, B>, // from host
+    write_ep: EndpointIn<'a, B>, // to host
+    buf: [u8; 64], // 64 bytes in total buffer
+    len: usize,
+    need_zlp: bool,
+}
+
+
+impl<B: UsbBus> MsInterface<'_, B> {
+    pub fn new(alloc: &UsbBusAllocator<B>) -> MsInterface<'_, B> {
+        MsInterface {
             comm_if: alloc.interface(),
-            comm_ep: alloc.interrupt(8, 255),
-            data_if: alloc.interface(),
-            read_ep: alloc.bulk(64),
-            write_ep: alloc.bulk(64),
+            comm_ep: alloc.interrupt(8, 255), // not sure what happens here
+            data_if: alloc.interface(), 
+            read_ep: alloc.bulk(64), // from host
+            write_ep: alloc.bulk(64), // to host
             buf: [0; 64],
             len: 0,
             need_zlp: false,
@@ -100,7 +125,7 @@ impl<B: UsbBus> SerialPort<'_, B> {
     }
 }
 
-impl<B: UsbBus> UsbClass<B> for SerialPort<'_, B> {
+impl<B: UsbBus> UsbClass<B> for MsInterface<'_, B> {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         writer.interface(
             self.comm_if,

@@ -43,27 +43,26 @@ fn main() -> ! {
         gpioa.pa12,
     );
 
-    let mut serial = audio_midi::SerialPort::new(&usb_bus);
+    let mut midi = audio_midi::MsInterface::new(&usb_bus);
 
     let mut usb_dev =
         UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x5824, 0x27dd))
-            .manufacturer("Fake company")
-            .product("Serial port")
-            .serial_number("TEST")
-            // .device_class(cdc_acm::USB_CLASS_CDC)
-            .device_class(audio_midi::USB_CLASS_CDC)
+            .manufacturer("Per Lindgren")
+            .product("USB MIDI")
+            .serial_number("0123")
+            .device_class(audio_midi::USB_CLASS_AUDIO)
             .build();
 
     usb_dev.force_reset().expect("reset failed");
 
     loop {
-        if !usb_dev.poll(&mut [&mut serial]) {
+        if !usb_dev.poll(&mut [&mut midi]) {
             continue;
         }
 
         let mut buf = [0u8; 64];
 
-        match serial.read(&mut buf) {
+        match midi.read(&mut buf) {
             Ok(count) if count > 0 => {
                 // Echo back in upper case
                 for c in buf[0..count].iter_mut() {
@@ -72,7 +71,7 @@ fn main() -> ! {
                     }
                 }
 
-                serial.write(&buf[0..count]).ok();
+                midi.write(&buf[0..count]).ok();
             }
             _ => {}
         }
