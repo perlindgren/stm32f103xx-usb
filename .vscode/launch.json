@@ -1,0 +1,56 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "name": "serial",
+            "preLaunchTask": "cargo build --example serial --release",
+            "executable": "./target/thumbv7m-none-eabi/release/examples/serial",
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32f1x.cfg"
+            ],
+            "postLaunchCommands": [
+                "monitor arm semihosting enable"
+            ],
+            "cwd": "${workspaceRoot}"
+        },
+        {
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "name": "midi",
+            "preLaunchTask": "cargo build --example midi --release",
+            "executable": "./target/thumbv7m-none-eabi/release/examples/midi",
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32f1x.cfg"
+            ],
+            "postLaunchCommands": [
+                "monitor arm semihosting enable"
+            ],
+            "cwd": "${workspaceRoot}"
+        },
+        {
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "name": "hello",
+            "preLaunchTask": "cargo build --example hello --release",
+            "executable": "./target/thumbv7m-none-eabi/release/examples/hello",
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32f1x.cfg"
+            ],
+            "postLaunchCommands": [
+                "monitor arm semihosting enable"
+            ],
+            "cwd": "${workspaceRoot}"
+        },
+    ]
+}

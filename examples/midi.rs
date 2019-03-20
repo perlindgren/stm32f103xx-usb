@@ -11,7 +11,8 @@ use cortex_m_semihosting::hprintln;
 use stm32f103xx_usb::UsbBus;
 use usb_device::prelude::*;
 
-mod cdc_acm;
+//mod cdc_acm;
+mod audio_midi;
 
 #[entry]
 #[inline(never)]
@@ -42,14 +43,15 @@ fn main() -> ! {
         gpioa.pa12,
     );
 
-    let mut serial = cdc_acm::SerialPort::new(&usb_bus);
+    let mut serial = audio_midi::SerialPort::new(&usb_bus);
 
     let mut usb_dev =
         UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x5824, 0x27dd))
             .manufacturer("Fake company")
             .product("Serial port")
             .serial_number("TEST")
-            .device_class(cdc_acm::USB_CLASS_CDC)
+            // .device_class(cdc_acm::USB_CLASS_CDC)
+            .device_class(audio_midi::USB_CLASS_CDC)
             .build();
 
     usb_dev.force_reset().expect("reset failed");
