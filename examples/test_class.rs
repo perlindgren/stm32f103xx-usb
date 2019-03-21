@@ -6,8 +6,8 @@ extern crate panic_semihosting;
 use cortex_m_rt::entry;
 use stm32f1xx_hal::{prelude::*, stm32};
 
-use usb_device::test_class::TestClass;
 use stm32f103xx_usb::UsbBus;
+use usb_device::test_class::TestClass;
 
 #[entry]
 fn main() -> ! {
@@ -16,7 +16,8 @@ fn main() -> ! {
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
 
-    let clocks = rcc.cfgr
+    let clocks = rcc
+        .cfgr
         .use_hse(8.mhz())
         .sysclk(48.mhz())
         .pclk1(24.mhz())
@@ -27,8 +28,12 @@ fn main() -> ! {
     let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
 
     let usb_bus = UsbBus::usb_with_reset(
-        dp.USB, &mut rcc.apb1,
-        &clocks, &mut gpioa.crh, gpioa.pa12);
+        dp.USB,
+        &mut rcc.apb1,
+        &clocks,
+        &mut gpioa.crh,
+        gpioa.pa12,
+    );
 
     let mut test = TestClass::new(&usb_bus);
 

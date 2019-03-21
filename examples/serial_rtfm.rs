@@ -3,7 +3,6 @@
 #![allow(non_snake_case)]
 
 /// CDC-ACM serial port example using cortex-m-rtfm.
-
 extern crate panic_semihosting;
 
 mod cdc_acm;
@@ -11,13 +10,12 @@ mod cdc_acm;
 use rtfm::app;
 use stm32f1xx_hal::prelude::*;
 
-use usb_device::prelude::*;
 use stm32f103xx_usb::UsbBus;
 use usb_device::bus;
+use usb_device::prelude::*;
 
 #[app(device = stm32f1xx_hal::stm32)]
 const APP: () = {
-
     static mut USB_DEV: UsbDevice<'static, UsbBus> = ();
     static mut SERIAL: cdc_acm::SerialPort<'static, UsbBus> = ();
 
@@ -28,7 +26,8 @@ const APP: () = {
         let mut flash = device.FLASH.constrain();
         let mut rcc = device.RCC.constrain();
 
-        let clocks = rcc.cfgr
+        let clocks = rcc
+            .cfgr
             .use_hse(8.mhz())
             .sysclk(48.mhz())
             .pclk1(24.mhz())
@@ -39,19 +38,24 @@ const APP: () = {
         let mut gpioa = device.GPIOA.split(&mut rcc.apb2);
 
         *USB_BUS = Some(UsbBus::usb_with_reset(
-            device.USB, &mut rcc.apb1,
-            &clocks, &mut gpioa.crh, gpioa.pa12));
+            device.USB,
+            &mut rcc.apb1,
+            &clocks,
+            &mut gpioa.crh,
+            gpioa.pa12,
+        ));
 
         let serial = cdc_acm::SerialPort::new(USB_BUS.as_ref().unwrap());
 
         let mut usb_dev = UsbDeviceBuilder::new(
-                USB_BUS.as_ref().unwrap(),
-                UsbVidPid(0x5824, 0x27dd))
-            .manufacturer("Fake company")
-            .product("Serial port")
-            .serial_number("TEST")
-            .device_class(cdc_acm::USB_CLASS_CDC)
-            .build();
+            USB_BUS.as_ref().unwrap(),
+            UsbVidPid(0x5824, 0x27dd),
+        )
+        .manufacturer("Fake company")
+        .product("Serial port")
+        .serial_number("TEST")
+        .device_class(cdc_acm::USB_CLASS_CDC)
+        .build();
 
         usb_dev.force_reset().expect("reset failed");
 
@@ -72,8 +76,8 @@ const APP: () = {
 
 fn usb_poll<B: bus::UsbBus>(
     usb_dev: &mut UsbDevice<'static, B>,
-    serial: &mut cdc_acm::SerialPort<'static, B>)
-{
+    serial: &mut cdc_acm::SerialPort<'static, B>,
+) {
     if !usb_dev.poll(&mut [serial]) {
         return;
     }
@@ -90,7 +94,7 @@ fn usb_poll<B: bus::UsbBus>(
             }
 
             serial.write(&buf[0..count]).ok();
-        },
-        _ => { },
+        }
+        _ => {}
     }
 }

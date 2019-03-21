@@ -17,6 +17,18 @@
         },
         {
             "type": "shell",
+            "label": "cargo build --example midi_raw --release",
+            "command": "cargo build --example midi_raw --release",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "type": "shell",
             "label": "cargo build --example midi --release",
             "command": "cargo build --example midi --release",
             "problemMatcher": [

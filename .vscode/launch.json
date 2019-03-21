@@ -40,6 +40,22 @@
             "type": "cortex-debug",
             "request": "launch",
             "servertype": "openocd",
+            "name": "midi_raw",
+            "preLaunchTask": "cargo build --example midi_raw --release",
+            "executable": "./target/thumbv7m-none-eabi/release/examples/midi_raw",
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32f1x.cfg"
+            ],
+            "postLaunchCommands": [
+                "monitor arm semihosting enable"
+            ],
+            "cwd": "${workspaceRoot}"
+        },
+        {
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
             "name": "hello",
             "preLaunchTask": "cargo build --example hello --release",
             "executable": "./target/thumbv7m-none-eabi/release/examples/hello",
