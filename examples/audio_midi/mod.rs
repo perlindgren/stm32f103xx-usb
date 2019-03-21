@@ -37,16 +37,6 @@ const CDC_TYPE_UNION: u8 = 0x06;
 const REQ_SET_LINE_CODING: u8 = 0x20;
 const REQ_SET_CONTROL_LINE_STATE: u8 = 0x22;
 
-pub struct SerialPort<'a, B: UsbBus> {
-    comm_if: InterfaceNumber,
-    comm_ep: EndpointIn<'a, B>,
-    data_if: InterfaceNumber,
-    read_ep: EndpointOut<'a, B>,
-    write_ep: EndpointIn<'a, B>,
-    buf: [u8; 64],
-    len: usize,
-    need_zlp: bool,
-}
 
 //   0x09, 0x24, 0x01, 0x00, 0x01, 0x09, 0x00, 0x01, 0x01, // CS Interface (audio)
 pub struct CsInterfaceAudio<'a, B: UsbBus> {
@@ -125,12 +115,13 @@ impl<B: UsbBus> MsInterface<'_, B> {
     }
 }
 
+// 
 impl<B: UsbBus> UsbClass<B> for MsInterface<'_, B> {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         writer.interface(
             self.comm_if,
             USB_CLASS_AUDIO,
-            CDC_SUBCLASS_ACM,
+            AUDIO_SUBCLASS_MS,
             CDC_PROTOCOL_AT)?;
 
         writer.write(

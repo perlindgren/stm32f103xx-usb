@@ -12,6 +12,7 @@ stm32f1xx-hal = { version = "0.1.1", features = ["stm32f103", "rt"] }
 usb-device = { git = "https://github.com/mvirkkunen/usb-device", rev = "e58e30f3b9c9bf4aab00ea039d129b964a3fd2d3" }
 panic-halt = "0.2.0"
 cortex-m-semihosting = "0.3.2"
+nb = "0.1.1"
 
 [dev-dependencies]
 cortex-m-rt = "0.6.7"
