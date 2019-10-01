@@ -10,10 +10,7 @@
             "problemMatcher": [
                 "$rustc"
             ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            }
+            "group": "build"
         },
         {
             "type": "shell",
@@ -51,5 +48,17 @@
                 "isDefault": true
             }
         },
+        {
+            "type": "shell",
+            "label": "cargo build --example fader --release",
+            "command": "cargo build --example fader --release",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
     ]
 }
