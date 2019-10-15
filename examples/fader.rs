@@ -3,8 +3,6 @@
 
 extern crate panic_semihosting;
 
-//use stlinky::{stlinky_buffer, sprintln};
-
 use cortex_m_rt::entry;
 // use cortex_m_semihosting::hprintln;
 use nb::block;
@@ -53,14 +51,9 @@ mod midi {
             ])
         }
 
-        pub fn control_msg(
-            &self,
-            chan: u8,
-            ctrl_no: u8,
-            ctrl_val: u8,
-        ) -> Result<usize> {
+        pub fn control_msg(&self, chan: u8, ctrl_no: u8, ctrl_val: u8) -> Result<usize> {
             self.in_ep.write(&[
-                0x0b,                 // ?
+                0x0b,                 // ? used for naming ?
                 0xb0 | (chan | 0x0f), // control message
                 ctrl_no & 0x7f,       // controller number
                 ctrl_val & 0x7f,      // controller value
@@ -69,10 +62,7 @@ mod midi {
     }
 
     impl<B: UsbBus> UsbClass<B> for MidiClass<'_, B> {
-        fn get_configuration_descriptors(
-            &self,
-            writer: &mut DescriptorWriter,
-        ) -> Result<()> {
+        fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
             writer.interface(self.audio_if, 0x01, 0x01, 0x00)?; // Interface 0
             writer.write(0x24, &[0x01, 0x00, 0x01, 0x09, 0x00, 0x01, 0x01])?; // CS Interface (audio)
 
@@ -91,8 +81,6 @@ mod midi {
         }
     }
 }
-
-//stlinky_buffer!(STDOUT, 1024);
 
 // Fader Position
 #[derive(Debug, PartialEq)]
@@ -144,32 +132,26 @@ fn main() -> ! {
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
 
     // fader
-    let in_a = gpioc.pc14.into_pull_up_input(&mut gpioc.crh);
-    let in_b = gpioc.pc15.into_pull_up_input(&mut gpioc.crh);
+    let in_a = gpioc.pc14.into_floating_input(&mut gpioc.crh);
+    let in_b = gpioc.pc15.into_floating_input(&mut gpioc.crh);
 
-    let usb_bus = UsbBus::usb_with_reset(
-        dp.USB,
-        &mut rcc.apb1,
-        &clocks,
-        &mut gpioa.crh,
-        gpioa.pa12,
-    );
+    let usb_bus =
+        UsbBus::usb_with_reset(dp.USB, &mut rcc.apb1, &clocks, &mut gpioa.crh, gpioa.pa12);
 
     let mut midi = midi::MidiClass::new(&usb_bus);
 
-    let mut usb_dev =
-        UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27de))
-            .manufacturer("Fake company")
-            .product("MIDI Device")
-            .serial_number("TEST")
-            .build();
+    let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27de))
+        .manufacturer("Fake company")
+        .product("MIDI Device")
+        .serial_number("TEST")
+        .build();
 
     usb_dev.force_reset().expect("reset failed");
 
     let mut timer = Timer::syst(cp.SYST, 1000.hz(), clocks);
 
     // hprintln!("start").unwrap();
-    let mut pos = Position::new(in_a.is_high(), in_b.is_high());
+    let mut pos: Position = Position::new(in_a.is_high(), in_b.is_high());
     //  hprintln!("pos: {:?}, val {:?}", pos, pos.to_val()).unwrap();
     midi.control_msg(0, 5, pos.to_val()).ok();
 
