@@ -141,8 +141,8 @@ fn main() -> ! {
     let mut midi = midi::MidiClass::new(&usb_bus);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27de))
-        .manufacturer("Fake company")
-        .product("MIDI Device")
+        .manufacturer("Per Lindgren")
+        .product("RTFM Fader")
         .serial_number("TEST")
         .build();
 
@@ -162,6 +162,12 @@ fn main() -> ! {
             let new_pos = Position::new(in_a.is_high(), in_b.is_high());
             if new_pos != pos {
                 pos = new_pos;
+
+                match pos {
+                    Position::Mid => led.set_low(),
+                    _ => led.set_high(),
+                }
+
                 // hprintln!("pos: {:?}, val {:?}", pos, pos.to_val()).unwrap();
                 midi.control_msg(0, 5, pos.to_val()).ok();
             }
