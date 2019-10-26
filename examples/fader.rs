@@ -1,14 +1,115 @@
-#![no_std]
+//! CDC-ACM serial port example using cortex-m-rtfm.
 #![no_main]
+#![no_std]
+#![allow(non_snake_case)]
 
 extern crate panic_semihosting;
 
-use cortex_m_rt::entry;
-// use cortex_m_semihosting::hprintln;
-use nb::block;
-use stm32f103xx_usb::UsbBus;
-use stm32f1xx_hal::{prelude::*, stm32, timer::Timer};
+use cortex_m::asm::delay;
+use rtfm::app;
+use stm32f1xx_hal::prelude::*;
+
+use stm32_usbd::{UsbBus, UsbBusType};
+use usb_device::bus;
 use usb_device::prelude::*;
+use usbd_serial::{SerialPort, USB_CLASS_CDC};
+
+#[app(device = stm32f1xx_hal::stm32)]
+const APP: () = {
+    static mut USB_DEV: UsbDevice<'static, UsbBusType> = ();
+    static mut SERIAL: SerialPort<'static, UsbBusType> = ();
+
+    #[init]
+    fn init() {
+        static mut USB_BUS: Option<bus::UsbBusAllocator<UsbBusType>> = None;
+
+        let mut flash = device.FLASH.constrain();
+        let mut rcc = device.RCC.constrain();
+
+        let clocks = rcc
+            .cfgr
+            .use_hse(8.mhz())
+            .sysclk(48.mhz())
+            .pclk1(24.mhz())
+            .freeze(&mut flash.acr);
+
+        assert!(clocks.usbclk_valid());
+
+        let mut gpioa = device.GPIOA.split(&mut rcc.apb2);
+
+        // BluePill board has a pull-up resistor on the D+ line.
+        // Pull the D+ pin down to send a RESET condition to the USB bus.
+        let mut usb_dp = gpioa.pa12.into_push_pull_output(&mut gpioa.crh);
+        usb_dp.set_low();
+        delay(clocks.sysclk().0 / 100);
+
+        let usb_dm = gpioa.pa11;
+        let usb_dp = usb_dp.into_floating_input(&mut gpioa.crh);
+
+        *USB_BUS = Some(UsbBus::new(device.USB, (usb_dm, usb_dp)));
+
+        let serial = SerialPort::new(USB_BUS.as_ref().unwrap());
+
+        let usb_dev = UsbDeviceBuilder::new(USB_BUS.as_ref().unwrap(), UsbVidPid(0x16c0, 0x27dd))
+            // .manufacturer("Fake company")
+            // .product("Serial port")
+            // .serial_number("TEST")
+            // .device_class(USB_CLASS_CDC)
+            // .build();
+            .manufacturer("Per Lindgren")
+            .product("RTFM Fader")
+            .serial_number("v0")
+            .build();
+
+        USB_DEV = usb_dev;
+        SERIAL = serial;
+    }
+
+    #[interrupt(resources = [USB_DEV, SERIAL])]
+    fn USB_HP_CAN_TX() {
+        usb_poll(&mut resources.USB_DEV, &mut resources.SERIAL);
+    }
+
+    #[interrupt(resources = [USB_DEV, SERIAL])]
+    fn USB_LP_CAN_RX0() {
+        usb_poll(&mut resources.USB_DEV, &mut resources.SERIAL);
+    }
+};
+
+fn usb_poll<B: bus::UsbBus>(
+    usb_dev: &mut UsbDevice<'static, B>,
+    serial: &mut SerialPort<'static, B>,
+) {
+    if !usb_dev.poll(&mut [serial]) {
+        return;
+    }
+
+    let mut buf = [0u8; 8];
+
+    match serial.read(&mut buf) {
+        Ok(count) if count > 0 => {
+            // Echo back in upper case
+            for c in buf[0..count].iter_mut() {
+                if 0x61 <= *c && *c <= 0x7a {
+                    *c &= !0x20;
+                }
+            }
+
+            serial.write(&buf[0..count]).ok();
+        }
+        _ => {}
+    }
+}
+
+// extern crate panic_semihosting;
+
+// use cortex_m_rt::entry;
+// // use cortex_m_semihosting::hprintln;
+// use nb::block;
+// // use stm32f103xx_usb::UsbBus;
+// use stm32_usbd::{UsbBus, UsbBusType};
+// use stm32f1xx_hal::{prelude::*, stm32, timer::Timer};
+// use usb_device::prelude::*;
 
 mod midi {
     use usb_device::class_prelude::*;
@@ -109,69 +210,69 @@ impl Position {
     }
 }
 
-#[entry]
-fn main() -> ! {
-    let cp = cortex_m::Peripherals::take().unwrap();
-    let dp = stm32::Peripherals::take().unwrap();
+// #[entry]
+// fn main() -> ! {
+//     let cp = cortex_m::Peripherals::take().unwrap();
+//     let dp = stm32::Peripherals::take().unwrap();
 
-    let mut flash = dp.FLASH.constrain();
-    let mut rcc = dp.RCC.constrain();
+//     let mut flash = dp.FLASH.constrain();
+//     let mut rcc = dp.RCC.constrain();
 
-    let clocks = rcc
-        .cfgr
-        .use_hse(8.mhz())
-        .sysclk(48.mhz())
-        .pclk1(24.mhz())
-        .freeze(&mut flash.acr);
+//     let clocks = rcc
+//         .cfgr
+//         .use_hse(8.mhz())
+//         .sysclk(48.mhz())
+//         .pclk1(24.mhz())
+//         .freeze(&mut flash.acr);
 
-    assert!(clocks.usbclk_valid(), "usb clocks not valid");
+//     assert!(clocks.usbclk_valid(), "usb clocks not valid");
 
-    let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
-    let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
+//     let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
+//     let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
 
-    let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
+//     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
 
-    // fader
-    let in_a = gpioc.pc14.into_floating_input(&mut gpioc.crh);
-    let in_b = gpioc.pc15.into_floating_input(&mut gpioc.crh);
+//     // fader
+//     let in_a = gpioc.pc14.into_floating_input(&mut gpioc.crh);
+//     let in_b = gpioc.pc15.into_floating_input(&mut gpioc.crh);
 
-    let usb_bus =
-        UsbBus::usb_with_reset(dp.USB, &mut rcc.apb1, &clocks, &mut gpioa.crh, gpioa.pa12);
+//     let usb_bus =
+//         UsbBus::usb_with_reset(dp.USB, &mut rcc.apb1, &clocks, &mut gpioa.crh, gpioa.pa12);
 
-    let mut midi = midi::MidiClass::new(&usb_bus);
+//     let mut midi = midi::MidiClass::new(&usb_bus);
 
-    let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27de))
-        .manufacturer("Per Lindgren")
-        .product("RTFM Fader")
-        .serial_number("TEST")
-        .build();
+//     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27de))
+//         .manufacturer("Per Lindgren")
+//         .product("RTFM Fader")
+//         .serial_number("TEST")
+//         .build();
 
-    usb_dev.force_reset().expect("reset failed");
+//     usb_dev.force_reset().expect("reset failed");
 
-    let mut timer = Timer::syst(cp.SYST, 1000.hz(), clocks);
+//     let mut timer = Timer::syst(cp.SYST, 1000.hz(), clocks);
 
-    // hprintln!("start").unwrap();
-    let mut pos: Position = Position::new(in_a.is_high(), in_b.is_high());
-    //  hprintln!("pos: {:?}, val {:?}", pos, pos.to_val()).unwrap();
-    midi.control_msg(0, 5, pos.to_val()).ok();
+//     // hprintln!("start").unwrap();
+//     let mut pos: Position = Position::new(in_a.is_high(), in_b.is_high());
+//     //  hprintln!("pos: {:?}, val {:?}", pos, pos.to_val()).unwrap();
+//     midi.control_msg(0, 5, pos.to_val()).ok();
 
-    loop {
-        while usb_dev.poll(&mut [&mut midi]) {}
+//     loop {
+//         while usb_dev.poll(&mut [&mut midi]) {}
 
-        if usb_dev.state() == UsbDeviceState::Configured {
-            let new_pos = Position::new(in_a.is_high(), in_b.is_high());
-            if new_pos != pos {
-                pos = new_pos;
+//         if usb_dev.state() == UsbDeviceState::Configured {
+//             let new_pos = Position::new(in_a.is_high(), in_b.is_high());
+//             if new_pos != pos {
+//                 pos = new_pos;
 
-                match pos {
-                    Position::Mid => led.set_low(),
-                    _ => led.set_high(),
-                }
+//                 match pos {
+//                     Position::Mid => led.set_low(),
+//                     _ => led.set_high(),
+//                 }
 
-                // hprintln!("pos: {:?}, val {:?}", pos, pos.to_val()).unwrap();
-                midi.control_msg(0, 5, pos.to_val()).ok();
-            }
-            // block!(timer.wait()).unwrap();
-        }
-    }
-}
+//                 // hprintln!("pos: {:?}, val {:?}", pos, pos.to_val()).unwrap();
+//                 midi.control_msg(0, 5, pos.to_val()).ok();
+//             }
+//             // block!(timer.wait()).unwrap();
+//         }
+//     }
+// }

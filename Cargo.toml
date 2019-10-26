@@ -1,21 +1,21 @@
+
 [package]
-name = "stm32f103xx-usb"
+name = "fader"
 version = "0.1.0"
+authors = ["Per Lindgren <per.lindgren@ltu.se>"]
 edition = "2018"
-authors = ["Matti Virkkunen <mvirkkunen@gmail.com>"]
 
 [dependencies]
-bare-metal = "0.2.4"
-vcell = "0.1.0"
-cortex-m = "0.5.8"
-stm32f1xx-hal = { version = "0.1.1", features = ["stm32f103", "rt"] }
-usb-device = { git = "https://github.com/mvirkkunen/usb-device", rev = "e58e30f3b9c9bf4aab00ea039d129b964a3fd2d3" }
-panic-halt = "0.2.0"
-cortex-m-semihosting = "0.3.2"
-nb = "0.1.1"
+cortex-m = "0.6"
+cortex-m-rt = "0.6"
+stm32f1xx-hal = { version = "0.3", features = ["rt"] }
+panic-semihosting = "0.5"
+usb-device = "0.2.1"
+usbd-serial = "0.1"
+stm32-usbd = { version = "0.3.0", features = ["stm32f103xx"] }
+nb = "0.1.2"
 
 [dev-dependencies]
-cortex-m-rt = "0.6.7"
 cortex-m-rtfm = "0.4.0"
 panic-semihosting = "0.5.1"
 

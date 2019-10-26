@@ -1,27 +1,27 @@
+//! CDC-ACM serial port example using cortex-m-rtfm.
 #![no_main]
 #![no_std]
 #![allow(non_snake_case)]
 
-/// CDC-ACM serial port example using cortex-m-rtfm.
 extern crate panic_semihosting;
 
-mod cdc_acm;
-
+use cortex_m::asm::delay;
 use rtfm::app;
 use stm32f1xx_hal::prelude::*;
 
-use stm32f103xx_usb::UsbBus;
+use stm32_usbd::{UsbBus, UsbBusType};
 use usb_device::bus;
 use usb_device::prelude::*;
+use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 #[app(device = stm32f1xx_hal::stm32)]
 const APP: () = {
-    static mut USB_DEV: UsbDevice<'static, UsbBus> = ();
-    static mut SERIAL: cdc_acm::SerialPort<'static, UsbBus> = ();
+    static mut USB_DEV: UsbDevice<'static, UsbBusType> = ();
+    static mut SERIAL: SerialPort<'static, UsbBusType> = ();
 
     #[init]
     fn init() {
-        static mut USB_BUS: Option<bus::UsbBusAllocator<UsbBus>> = None;
+        static mut USB_BUS: Option<bus::UsbBusAllocator<UsbBusType>> = None;
 
         let mut flash = device.FLASH.constrain();
         let mut rcc = device.RCC.constrain();
@@ -37,27 +37,25 @@ const APP: () = {
 
         let mut gpioa = device.GPIOA.split(&mut rcc.apb2);
 
-        *USB_BUS = Some(UsbBus::usb_with_reset(
-            device.USB,
-            &mut rcc.apb1,
-            &clocks,
-            &mut gpioa.crh,
-            gpioa.pa12,
-        ));
+        // BluePill board has a pull-up resistor on the D+ line.
+        // Pull the D+ pin down to send a RESET condition to the USB bus.
+        let mut usb_dp = gpioa.pa12.into_push_pull_output(&mut gpioa.crh);
+        usb_dp.set_low();
+        delay(clocks.sysclk().0 / 100);
 
-        let serial = cdc_acm::SerialPort::new(USB_BUS.as_ref().unwrap());
+        let usb_dm = gpioa.pa11;
+        let usb_dp = usb_dp.into_floating_input(&mut gpioa.crh);
 
-        let mut usb_dev = UsbDeviceBuilder::new(
-            USB_BUS.as_ref().unwrap(),
-            UsbVidPid(0x5824, 0x27dd),
-        )
-        .manufacturer("Fake company")
-        .product("Serial port")
-        .serial_number("TEST")
-        .device_class(cdc_acm::USB_CLASS_CDC)
-        .build();
+        *USB_BUS = Some(UsbBus::new(device.USB, (usb_dm, usb_dp)));
 
-        usb_dev.force_reset().expect("reset failed");
+        let serial = SerialPort::new(USB_BUS.as_ref().unwrap());
+
+        let usb_dev = UsbDeviceBuilder::new(USB_BUS.as_ref().unwrap(), UsbVidPid(0x16c0, 0x27dd))
+            .manufacturer("Fake company")
+            .product("Serial port")
+            .serial_number("TEST")
+            .device_class(USB_CLASS_CDC)
+            .build();
 
         USB_DEV = usb_dev;
         SERIAL = serial;
@@ -76,7 +74,7 @@ const APP: () = {
 
 fn usb_poll<B: bus::UsbBus>(
     usb_dev: &mut UsbDevice<'static, B>,
-    serial: &mut cdc_acm::SerialPort<'static, B>,
+    serial: &mut SerialPort<'static, B>,
 ) {
     if !usb_dev.poll(&mut [serial]) {
         return;
